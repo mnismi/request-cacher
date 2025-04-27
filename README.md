@@ -1,8 +1,12 @@
-# @mnismi/request-cacher 🚀
+# ⚡@mnismi/request-cacher
+
+### SWR (Stale-While-Revalidate) Middleware for Hono.js / Express.js
+
+> Express middleware is coming soon...
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> SWR (Stale-While-Revalidate) Middleware for Hono.js / Express.js
+<!-- > SWR (Stale-While-Revalidate) Middleware for Hono.js / Express.js -->
 
 ## Installation 📦
 
