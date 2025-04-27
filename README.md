@@ -1,84 +1,96 @@
-# Turborepo starter
+# @mnismi/request-cacher 🚀
 
-This Turborepo starter is maintained by the Turborepo core team.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Using this example
+> SWR (Stale-While-Revalidate) Middleware for Hono.js / Express.js
 
-Run the following command:
+## Installation 📦
 
-```sh
-npx create-turbo@latest
+```bash
+# Using npm
+npm install @mnismi/request-cacher ioredis
+
+# Using yarn
+yarn add @mnismi/request-cacher ioredis
+
+# Using pnpm
+pnpm add @mnismi/request-cacher ioredis
 ```
 
-## What's inside?
+## Quick Start 🏁
 
-This Turborepo includes the following packages/apps:
+### Hono Example
 
-### Apps and Packages
+```typescript
+import { serve } from '@hono/node-server'
+import { Hono } from 'hono'
+import { Redis } from 'ioredis'
+import { cacheMiddleware, initialize } from '@mnismi/request-cacher/hono'
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+// Setup Redis client
+const redis = new Redis({
+  host: 'localhost',
+  port: 6379,
+})
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+// Initialize the cache system with Redis client
+initialize({ client: redis })
 
-### Utilities
+const app = new Hono()
 
-This Turborepo has some additional tools already setup for you:
+// Apply caching to specific routes
+app.get(
+  '/api/data',
+  cacheMiddleware({ revalidateIn: 60 }), // Cache expires in 60 seconds
+  async (c) => {
+    // Expensive data fetching operation
+    const data = await fetchExpensiveData()
+    return c.json(data)
+  },
+)
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-pnpm build
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-pnpm dev
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-npx turbo login
+serve(
+  {
+    fetch: app.fetch,
+    port: 3000,
+  },
+  (info) => {
+    console.log(`Server is running on http://localhost:${info.port}`)
+  },
+)
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+## Configuration Options 🔧
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+### Initialization
 
+```typescript
+initialize({
+  client: redisClient, // Required: Redis client instance
+  revalidateIn: 60, // Optional: Default TTL in seconds (default: 60)
+  log: true, // Optional: Enable logging (default: true)
+  keyPrefix: 'my-cache', // Optional: Redis key prefix (default: 'request-cacher')
+})
 ```
-npx turbo link
+
+### Middleware Options
+
+```typescript
+cacheMiddleware({
+  revalidateIn: 30, // Override the global TTL for this route (in seconds)
+  log: false, // Override the global logging setting for this route
+})
 ```
 
-## Useful Links
+## How It Works 🔍
 
-Learn more about the power of Turborepo:
+1. When a request is received, the middleware checks if a cached response exists
+2. If fresh cache exists (within TTL), it's returned immediately
+3. If stale cache exists (beyond TTL), it's returned while a background process updates the cache
+4. If no cache exists, the request is processed normally and the result is cached
 
-- [Tasks](https://turborepo.com/docs/core-concepts/monorepos/running-tasks)
-- [Caching](https://turborepo.com/docs/core-concepts/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/core-concepts/monorepos/filtering)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+This approach ensures users always get a fast response while keeping data as fresh as possible.
+
+## License 📄
+
+MIT © [mnismi](https://github.com/mnismi)
