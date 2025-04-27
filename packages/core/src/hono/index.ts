@@ -1,15 +1,14 @@
 import { createMiddleware } from 'hono/factory'
 import { initialize, getConfig } from '../config'
 
-function cacheMiddleware({ revalidateIn }: { revalidateIn?: number } = {}) {
+function cacheMiddleware({ revalidateIn, log }: { revalidateIn?: number; log?: boolean } = {}) {
   return createMiddleware(async (c, next) => {
-    const { redisClient, revalidateIn: globalRevalidateIn } = getConfig()
+    const { redisClient, revalidateIn: globalRevalidateIn, log: globalLog, keyPrefix } = getConfig()
 
+    const _log = log || globalLog
     const ttl = revalidateIn || globalRevalidateIn || 60
     const url = new URL(c.req.url)
-    const cacheKey = `cache:${c.req.method}:${url.pathname}${url.search}`
-
-    // console.log(`[Cache] Cache Key: ${cacheKey}`)
+    const cacheKey = `${keyPrefix}:${c.req.method}:${url.pathname}${url.search}`
 
     // Check if we have cached data
     const cachedData = await redisClient.get(cacheKey)
@@ -19,23 +18,13 @@ function cacheMiddleware({ revalidateIn }: { revalidateIn?: number } = {}) {
       const now = Date.now() / 1000
       const age = now - parsed.timestamp
 
-      // console.log(
-      //   `[Cache] Cache found, age: ${age.toFixed(2)}s, ttl: ${ttl}s, status: ${age < ttl ? 'fresh' : 'stale'}`,
-      // )
-
-      // console.log(`[Cache Hit]: ${cacheKey}`)
-
       // If cache is fresh, return immediately
       if (age < ttl) {
-        console.log(`[Cache Hit / Fresh]: age: ${age.toFixed(2)}s/${ttl}s ${cacheKey}`)
+        _log && console.log(`[Cache Hit / Fresh]: age: ${age.toFixed(2)}s/ ttl: ${ttl}s ${cacheKey}`)
         return c.json(parsed.data)
       }
 
-      // If cache is stale, serve stale data immediately and refresh in background
-      // console.log(`[Cache] Serving stale data while revalidating in background`)
-      // c.json(parsed.data)
-
-      console.log(`[Cache Hit / Stale]: age: ${age.toFixed(2)}s/${ttl}s ${cacheKey}`)
+      _log && console.log(`[Cache Hit / Stale]: age: ${age.toFixed(2)}s/ ttl: ${ttl}s ${cacheKey}`)
 
       // Update cache in the background
       if (!parsed.revalidating) {
@@ -47,7 +36,7 @@ function cacheMiddleware({ revalidateIn }: { revalidateIn?: number } = {}) {
           }),
         )
         queueMicrotask(async () => {
-          console.log(`[Revalidate Started]: ${cacheKey}`)
+          _log && console.log(`[Revalidate Started]: ${cacheKey}`)
           await next()
           const responseData = await c.res.clone().json()
 
@@ -59,15 +48,26 @@ function cacheMiddleware({ revalidateIn }: { revalidateIn?: number } = {}) {
               data: responseData,
             }),
           )
-          console.log(`[Revalidate Complete]: ${cacheKey}`)
+          _log && console.log(`[Revalidate Complete]: ${cacheKey}`)
         })
+      } else {
+        // fail safe: if the revalidation is true for more than 60 seconds, make it false
+        if (ttl + 60 < age) {
+          await redisClient.set(
+            cacheKey,
+            JSON.stringify({
+              ...parsed,
+              revalidating: false,
+            }),
+          )
+        }
       }
 
       return c.json(parsed.data)
     }
 
     // No cache exists: fetch, cache, and return
-    console.log(`[Cache Miss]: ${cacheKey}`)
+    _log && console.log(`[Cache Miss]: ${cacheKey}`)
     await next()
 
     // Get the response data
@@ -82,7 +82,7 @@ function cacheMiddleware({ revalidateIn }: { revalidateIn?: number } = {}) {
         data: responseData,
       }),
     )
-    console.log(`[Cached]: ${cacheKey}`)
+    _log && console.log(`[Cached]: ${cacheKey}`)
   })
 }
 
