@@ -1,0 +1,55 @@
+{
+  "name": "@mnismi/request-cacher",
+  "version": "0.0.4",
+  "description": "A simple request cacher for Hono and Express",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./hono": {
+      "import": {
+        "types": "./dist/hono/index.d.ts",
+        "default": "./dist/hono/index.js"
+      },
+      "require": {
+        "types": "./dist/hono/index.d.cts",
+        "default": "./dist/hono/index.cjs"
+      }
+    },
+    "./express": {
+      "import": {
+        "types": "./dist/express/index.d.ts",
+        "default": "./dist/express/index.js"
+      },
+      "require": {
+        "types": "./dist/express/index.d.cts",
+        "default": "./dist/express/index.cjs"
+      }
+    }
+  },
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "pnpm run clean && pnpm run tsup",
+    "dev": "pnpm run build --watch",
+    "clean": "rimraf dist",
+    "tsup": "tsup",
+    "test": "vitest",
+    "release": "standard-version"
+  },
+  "keywords": [],
+  "author": "Mohamed Nismi <info@mnismi.com> (https://mnismi.com)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mnismi/request-cacher"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "hono": "^4.7.7",
+    "rimraf": "^6.0.1",
+    "standard-version": "^9.5.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}
